@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border-primary;
+  }
+  
+  body {
+    @apply bg-background-primary text-text-primary font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-accent-primary hover:bg-accent-secondary text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-background-primary;
+  }
+  
+  .btn-secondary {
+    @apply bg-surface-secondary hover:bg-surface-tertiary text-text-primary font-medium py-2 px-4 rounded-lg border border-border-primary transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-background-primary;
+  }
+  
+  .input-field {
+    @apply bg-surface-primary border border-border-primary text-text-primary placeholder-text-tertiary rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-all duration-200;
+  }
+  
+     .textarea-field {
+     @apply bg-surface-primary border border-border-primary text-text-primary placeholder-text-tertiary rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent transition-all duration-200 resize-y;
+   }
+  
+  .card {
+    @apply bg-surface-primary border border-border-primary rounded-lg p-6 shadow-lg;
+  }
+  
+  .code-block {
+    @apply bg-surface-secondary border border-border-primary rounded-lg p-4 font-mono text-sm overflow-x-auto;
+  }
+} 
