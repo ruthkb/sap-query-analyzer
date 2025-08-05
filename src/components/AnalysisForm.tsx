@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Database, Filter, FileText, MessageSquare, Zap } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Database, Filter, FileText, MessageSquare, Zap, FileText as FileWord } from 'lucide-react';
 
 interface AnalysisFormProps {
   onSubmit: (data: {
@@ -8,16 +8,19 @@ interface AnalysisFormProps {
     filters: string;
     observations: string;
   }) => void;
+  onWordAnalysis?: (file: File) => Promise<void>;
   loading: boolean;
 }
 
-export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, loading }) => {
+export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, onWordAnalysis, loading }) => {
   const [formData, setFormData] = useState({
     transactionName: '',
     fieldsToExtract: '',
     filters: '',
     observations: ''
   });
+  const [wordLoading, setWordLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +34,42 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, loading })
     }));
   };
 
+  const handleWordFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar se é um arquivo Word válido
+    const validExtensions = ['.doc', '.docx'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    
+    if (!validExtensions.includes(fileExtension)) {
+      alert('Por favor, selecione um arquivo Word válido (.doc ou .docx)');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+      alert('O arquivo é muito grande. Tamanho máximo: 10MB');
+      return;
+    }
+
+    if (onWordAnalysis) {
+      setWordLoading(true);
+      try {
+        await onWordAnalysis(file);
+      } catch (error) {
+        console.error('Erro ao analisar arquivo Word:', error);
+        alert('Erro ao analisar o arquivo Word. Tente novamente.');
+      } finally {
+        setWordLoading(false);
+      }
+    }
+
+    // Limpar o input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Nome da Transação SAP */}
@@ -39,16 +78,44 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, loading })
           <Database className="h-4 w-4" />
           <span>Nome da Transação SAP</span>
         </label>
-        <input
-          type="text"
-          value={formData.transactionName}
-          onChange={(e) => handleChange('transactionName', e.target.value)}
-          placeholder="Ex: MM03, VA03, FB03..."
-          className="input-field w-full"
-          required
-        />
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            value={formData.transactionName}
+            onChange={(e) => handleChange('transactionName', e.target.value)}
+            placeholder="Ex: MM03, VA03, FB03..."
+            className="input-field flex-1"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={wordLoading || loading}
+            className="btn-secondary px-3 py-2 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Analisar arquivo Word para extrair informações"
+          >
+            {wordLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                <span className="text-xs">Analisando...</span>
+              </>
+            ) : (
+              <>
+                <FileWord className="h-4 w-4" />
+                <span className="text-xs">Word</span>
+              </>
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".doc,.docx"
+            onChange={handleWordFileSelect}
+            className="hidden"
+          />
+        </div>
         <p className="text-xs text-text-secondary">
-          Digite o código da transação SAP que gerou o trace
+          Digite o código da transação SAP que gerou o trace ou use o botão Word para extrair automaticamente
         </p>
       </div>
 

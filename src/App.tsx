@@ -5,6 +5,7 @@ import { AnalysisForm } from './components/AnalysisForm';
 import { AnalysisResults } from './components/AnalysisResults';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { OpenAIService } from './services/openai';
+import { WordAnalyzerService } from './services/wordAnalyzer';
 import { ExcelData, AnalysisResponse } from './types';
 
 const API_KEY_STORAGE_KEY = 'openai_api_key';
@@ -90,6 +91,37 @@ function App() {
     }
   };
 
+  const handleWordAnalysis = async (file: File) => {
+    if (!apiKey) {
+      setShowApiKeyModal(true);
+      return;
+    }
+
+    try {
+      const wordAnalyzer = new WordAnalyzerService(apiKey);
+      const result = await wordAnalyzer.analyzeWordFile(file);
+      
+      // Atualizar o formulário com os dados extraídos
+      const formData = {
+        transactionName: result.transacao,
+        fieldsToExtract: result.campos.join(', '),
+        filters: result.filtros.join(', '),
+        observations: result.observacao
+      };
+
+      // Se já temos dados do Excel, fazer a análise automaticamente
+      if (excelData) {
+        await handleAnalysisSubmit(formData);
+      } else {
+        // Mostrar os dados extraídos para o usuário preencher manualmente
+        alert(`Dados extraídos do arquivo Word:\n\nTransação: ${result.transacao}\nCampos: ${result.campos.join(', ')}\nFiltros: ${result.filtros.join(', ')}\nObservações: ${result.observacao}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      setError(errorMessage);
+    }
+  };
+
   const handleCopyQuery = (query: string) => {
     navigator.clipboard.writeText(query);
     setShowCopiedMessage(true);
@@ -138,6 +170,7 @@ function App() {
             <div className="card">
               <AnalysisForm
                 onSubmit={handleAnalysisSubmit}
+                onWordAnalysis={handleWordAnalysis}
                 loading={loading}
               />
             </div>
