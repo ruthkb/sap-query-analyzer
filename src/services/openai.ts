@@ -34,7 +34,8 @@ export class OpenAIService {
 {
   "tabelas_principais": ["lista", "das", "tabelas", "mais", "importantes"]
 }
-SEMPRE responda no formato JSON válido`
+**ATENÇÃO: A resposta DEVE ser um JSON PURO, sem blocos de código, sem markdown
+SEMPRE responda no formato JSON válido, iniciando a resposta por '{' e finalizado por '}', SEM NENHUM texto adicional fora do JSON.`
           },
           {
             role: "user",
@@ -96,14 +97,12 @@ SEMPRE responda no formato JSON válido`
        }
 
        // Extrair queries da resposta inicial
-       const initialJsonMatch = initialContent.match(/\{[\s\S]*\}/);
-       if (!initialJsonMatch) {
-         throw new Error('Resposta inicial não contém JSON válido');
-       }
-
-       const initialParsed = JSON.parse(initialJsonMatch[0]);
-       const initialQueries = initialParsed.queries || [];
-       
+       console.log('RESPOSTA INICIAL: ', initialContent);
+               const initialJsonMatch = initialContent.match(/\{[\s\S]*\}/);
+        if (!initialJsonMatch) {
+          throw new Error('Resposta inicial não contém JSON válido');
+        }
+        
         const parsedResponse = this.parseOpenAIResponse(initialContent, request.excelData);
         return parsedResponse;
       
@@ -159,7 +158,8 @@ Sua tarefa é analisar o arquivo anexado e:
 5. Em caso de agrupamentos, GERAR SEMPRE uma query por campo agrupador, pois cada um terá um total diferente.
 6. Gerar uma explicação técnica do funcionamento da transação, de cada query gerada e da tabela mais utilizada nas queries e seu funcionamento.
 
-SEMPRE responda no formato JSON válido.
+**ATENÇÃO: A resposta DEVE ser um JSON PURO, sem blocos de código, sem markdown
+SEMPRE responda no formato JSON válido, iniciando a resposta por '{' e finalizado por '}', SEM NENHUM texto adicional fora do JSON.
 SEMPRE monte as queries usando os campos reais disponíveis: ${camposReais}
 Importante: estruture as queries com CASE, pois os valores de 'Plano' são obtidos quando RRCTY = '0' e VERSN = '100'. Já os valores de 'Real' devem ser somados pelos mesmos campos quando RRCTY = '1' e VERSN = '000'. Sempre aplicar os filtros RRCTY e VERSN corretamente para separar Real e Plano.
 Atenção: gere 5 queries, uma query separada para cada um dos seguintes campos agrupadores, individualmente: 'N Conta', 'Centro de Lucro', 'CenLrc.Parcs', 'Empresa' e 'Área Funcional'. NUNCA agrupe múltiplos campos na mesma query. Cada query deve conter apenas um agrupador.
@@ -169,27 +169,33 @@ Atenção: gere 5 queries, uma query separada para cada um dos seguintes campos 
   private buildUserPrompt(request: AnalysisRequest): string {
     return `Analise o arquivo CSV anexado contendo trace de queries SQL da transação ${request.transactionName}.
     
-    Responda no formato JSON:
+    Responda SEMPRE no formato JSON:
 {
   "tabelas_unicas": ["lista", "de", "tabelas", "encontradas"],
   "tabelas_principais": ["lista", "das", "tabelas", "mais", "importantes"],
   "queries": ["query1", "query2", "query3"],
-  "explicacao": "Breve explicação técnica do funcionamento de cada query"
+  "explicacao": "Breve explicação técnica do funcionamento de cada query",
+  "detalhamento_transacao": "Detalhamento técnico do funcionamento da transação",
+  "detalhamento_tabelas": "Detalhamento técnico das tabelas utilizadas nas queries"
 }
-  SEMPRE responda no formato JSON válido.`;
+  SEMPRE responda no formato JSON válido, iniciando a resposta por '{' e finalizado por '}'.`;
   }
 
   private parseOpenAIResponse(content: string, excelData: any[]): AnalysisResponse {
     try {
-      // Extrair JSON da resposta
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('Resposta não contém JSON válido');
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
+      console.log('🔍 Processando resposta do OpenAI...');
+      console.log('📄 Conteúdo recebido:', content.substring(0, 200) + '...');
+      
+      // Parse direto do JSON (o prompt garante formato válido)
+      const parsed = JSON.parse(content);
+      console.log('✅ JSON parseado com sucesso');
+      console.log(`  📋 Tabelas únicas: ${parsed.tabelas_unicas?.length || 0}`);
+      console.log(`  📋 Tabelas principais: ${parsed.tabelas_principais?.length || 0}`);
+      console.log(`  📋 Queries: ${parsed.queries?.length || 0}`);
+      console.log(`  📋 Tem explicação: ${!!parsed.explicacao}`);
       
       // Calcular acurácia
+      console.log('\n🎯 Iniciando cálculo de acurácia...');
       const accuracy = this.calculateAccuracy(parsed.queries || [], excelData);
       
       // Estatísticas
@@ -209,77 +215,114 @@ Atenção: gere 5 queries, uma query separada para cada um dos seguintes campos 
           totalQueries: excelData.length,
           uniqueTables,
           mainTables: parsed.tabelas_principais?.length || 0
-        }
+        },
+        detalhamento_transacao: parsed.detalhamento_transacao || '',
+        detalhamento_tabelas: parsed.detalhamento_tabelas || ''
       };
     } catch (error) {
       console.error('Erro ao processar resposta do OpenAI:', error);
-      throw new Error('Falha ao processar resposta da API');
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      throw new Error(`Falha ao processar resposta da API: ${errorMessage}`);
     }
   }
 
   private calculateAccuracy(queries: string[], excelData: any[]): number {
-    if (!queries || queries.length === 0) return 0;
+    if (!queries || queries.length === 0) {
+      console.log('❌ Nenhuma query fornecida para cálculo de acurácia');
+      return 0;
+    }
     
-    const availableTables = new Set(excelData.map(row => row['Object Name']));
+    console.log('🎯 Iniciando cálculo de acurácia...');
+    console.log(`📊 Total de queries: ${queries.length}`);
+    
+    const availableTables = new Set(excelData.map(row => row['Object Name'].toUpperCase()));
     let totalTablesUsed = 0;
     let validTablesUsed = 0;
     
-    console.log('Tabelas disponíveis:', Array.from(availableTables));
+    console.log('📋 Tabelas disponíveis no arquivo:', Array.from(availableTables));
     
     queries.forEach((query, index) => {
-      console.log(`\nAnalisando Query ${index + 1}:`, query);
+      console.log(`\n🔍 Analisando Query ${index + 1}:`);
+      console.log('Query:', query.substring(0, 200) + '...');
       
       // Extrair todas as tabelas da query
       const tables = this.extractTablesFromQuery(query);
       
-      console.log('Tabelas extraídas:', tables);
+      console.log('📋 Tabelas extraídas da query:', tables);
+      
+      if (tables.length === 0) {
+        console.log('⚠️ Nenhuma tabela encontrada nesta query');
+      }
       
       tables.forEach(tableName => {
         totalTablesUsed++;
-        console.log(`Tabela encontrada: "${tableName.toUpperCase()}" - Disponível: ${availableTables.has(tableName.toUpperCase())}`);
+        const tableUpper = tableName.toUpperCase();
+        const isAvailable = availableTables.has(tableUpper);
         
-        if (availableTables.has(tableName.toUpperCase())) {
+        console.log(`  📊 Tabela: "${tableUpper}" - Disponível: ${isAvailable ? '✅' : '❌'}`);
+        
+        if (isAvailable) {
           validTablesUsed++;
         }
       });
     });
     
     const accuracy = totalTablesUsed > 0 ? (validTablesUsed / totalTablesUsed) * 100 : 0;
-    console.log(`\nAcurácia calculada: ${validTablesUsed}/${totalTablesUsed} = ${accuracy.toFixed(1)}%`);
+    console.log(`\n🎯 RESULTADO FINAL:`);
+    console.log(`  📊 Tabelas válidas: ${validTablesUsed}`);
+    console.log(`  📊 Total de tabelas: ${totalTablesUsed}`);
+    console.log(`  🎯 Acurácia: ${accuracy.toFixed(1)}%`);
     
     return accuracy;
   }
 
-  private extractTablesFromQuery(query: string): string[] {
+    private extractTablesFromQuery(query: string): string[] {
     const tables: string[] = [];
     const upperQuery = query.toUpperCase();
+    
+    console.log('🔍 Extraindo tabelas da query...');
     
     // Padrões para diferentes tipos de cláusulas SQL
     const patterns = [
       // FROM clause
-      /FROM\s+([A-Z_][A-Z0-9_]*)/gi,
+      { name: 'FROM', pattern: /FROM\s+([A-Z_][A-Z0-9_]*)/gi },
       // JOIN clauses (INNER, LEFT, RIGHT, FULL)
-      /(?:INNER\s+)?(?:LEFT\s+)?(?:RIGHT\s+)?(?:FULL\s+)?JOIN\s+([A-Z_][A-Z0-9_]*)/gi,
+      { name: 'JOIN', pattern: /(?:INNER\s+)?(?:LEFT\s+)?(?:RIGHT\s+)?(?:FULL\s+)?JOIN\s+([A-Z_][A-Z0-9_]*)/gi },
       // UPDATE clause
-      /UPDATE\s+([A-Z_][A-Z0-9_]*)/gi,
+      { name: 'UPDATE', pattern: /UPDATE\s+([A-Z_][A-Z0-9_]*)/gi },
       // DELETE FROM clause
-      /DELETE\s+FROM\s+([A-Z_][A-Z0-9_]*)/gi,
+      { name: 'DELETE', pattern: /DELETE\s+FROM\s+([A-Z_][A-Z0-9_]*)/gi },
       // INSERT INTO clause
-      /INSERT\s+INTO\s+([A-Z_][A-Z0-9_]*)/gi
+      { name: 'INSERT', pattern: /INSERT\s+INTO\s+([A-Z_][A-Z0-9_]*)/gi }
     ];
     
-    patterns.forEach(pattern => {
+    patterns.forEach(({ name, pattern }) => {
       let match;
+      const foundTables: string[] = [];
+      
       while ((match = pattern.exec(upperQuery)) !== null) {
         const tableName = match[1];
         if (tableName && !tables.includes(tableName)) {
-          tables.push(tableName.toLowerCase());
+          tables.push(tableName);
+          foundTables.push(tableName);
         }
+      }
+      
+      if (foundTables.length > 0) {
+        console.log(`  📋 Encontradas via ${name}:`, foundTables);
       }
     });
     
-         return tables;
-   }
+    // Remover duplicatas e converter para minúsculas
+    const uniqueTables = [...new Set(tables)].map(t => t.toLowerCase());
+    
+    console.log(`  📊 Total de tabelas únicas encontradas: ${uniqueTables.length}`);
+    if (uniqueTables.length > 0) {
+      console.log(`  📋 Tabelas:`, uniqueTables);
+    }
+    
+    return uniqueTables;
+  }
 
   private async scrapeTableFields(tables: string[]): Promise<string> {
     const allFields: string[] = [];
@@ -358,8 +401,6 @@ Atenção: gere 5 queries, uma query separada para cada um dos seguintes campos 
       return defaultFields.join(', ');
     }
     
-         return uniqueFields.join(', ');
-   }
-
-   
-   }  
+             return uniqueFields.join(', ');
+  }
+}    

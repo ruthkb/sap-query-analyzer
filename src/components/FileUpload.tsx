@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileSpreadsheet, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { FileSpreadsheet, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { ExcelData, FileUploadState } from '../types';
 import { processExcelFile, validateExcelFile } from '../utils/excel';
 

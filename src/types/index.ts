@@ -30,6 +30,8 @@ export interface AnalysisResponse {
     uniqueTables: number;
     mainTables: number;
   };
+  detalhamento_transacao?: string;
+  detalhamento_tabelas?: string;
 }
 
 export interface FileUploadState {

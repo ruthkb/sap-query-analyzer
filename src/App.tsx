@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, AlertCircle, Copy, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, AlertCircle, Check } from 'lucide-react';
 import { FileUpload } from './components/FileUpload';
 import { AnalysisForm } from './components/AnalysisForm';
 import { AnalysisResults } from './components/AnalysisResults';
@@ -94,31 +94,24 @@ function App() {
   const handleWordAnalysis = async (file: File) => {
     if (!apiKey) {
       setShowApiKeyModal(true);
-      return;
+      return null;
     }
 
     try {
       const wordAnalyzer = new WordAnalyzerService(apiKey);
       const result = await wordAnalyzer.analyzeWordFile(file);
       
-      // Atualizar o formulário com os dados extraídos
-      const formData = {
+      // Retornar os dados extraídos para preencher o formulário
+      return {
         transactionName: result.transacao,
         fieldsToExtract: result.campos.join(', '),
         filters: result.filtros.join(', '),
         observations: result.observacao
       };
-
-      // Se já temos dados do Excel, fazer a análise automaticamente
-      if (excelData) {
-        await handleAnalysisSubmit(formData);
-      } else {
-        // Mostrar os dados extraídos para o usuário preencher manualmente
-        alert(`Dados extraídos do arquivo Word:\n\nTransação: ${result.transacao}\nCampos: ${result.campos.join(', ')}\nFiltros: ${result.filtros.join(', ')}\nObservações: ${result.observacao}`);
-      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       setError(errorMessage);
+      return null;
     }
   };
 

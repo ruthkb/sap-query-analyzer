@@ -8,7 +8,12 @@ interface AnalysisFormProps {
     filters: string;
     observations: string;
   }) => void;
-  onWordAnalysis?: (file: File) => Promise<void>;
+  onWordAnalysis?: (file: File) => Promise<{
+    transactionName: string;
+    fieldsToExtract: string;
+    filters: string;
+    observations: string;
+  } | null>;
   loading: boolean;
 }
 
@@ -55,7 +60,20 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, onWordAnal
     if (onWordAnalysis) {
       setWordLoading(true);
       try {
-        await onWordAnalysis(file);
+        const extractedData = await onWordAnalysis(file);
+        if (extractedData) {
+          // Preencher os campos do formulário com os dados extraídos
+          setFormData(prev => ({
+            ...prev,
+            transactionName: extractedData.transactionName,
+            fieldsToExtract: extractedData.fieldsToExtract,
+            filters: extractedData.filters,
+            observations: extractedData.observations
+          }));
+          
+          // Mostrar mensagem de sucesso
+          alert('Dados extraídos do arquivo Word e preenchidos nos campos! Revise e clique em "Analisar" quando estiver pronto.');
+        }
       } catch (error) {
         console.error('Erro ao analisar arquivo Word:', error);
         alert('Erro ao analisar o arquivo Word. Tente novamente.');
@@ -115,7 +133,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, onWordAnal
           />
         </div>
         <p className="text-xs text-text-secondary">
-          Digite o código da transação SAP que gerou o trace ou use o botão Word para extrair automaticamente
+          Digite o código da transação SAP que gerou o trace ou use o botão Word para extrair e preencher automaticamente
         </p>
       </div>
 

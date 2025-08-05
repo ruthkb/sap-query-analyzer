@@ -77,7 +77,7 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, onCop
     
     // Processar cada linha para indentação
     const lines = formatted.split('\n');
-    const indentedLines = lines.map((line, index) => {
+    const indentedLines = lines.map((line) => {
       const trimmed = line.trim();
       if (!trimmed) return '';
       
@@ -303,6 +303,39 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, onCop
             <p className="text-sm text-text-secondary leading-relaxed">
               {results.queryAnalysis.explanation}
             </p>
+          </div>
+        )}
+      </div>
+
+      {/* Detalhamentos Técnicos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Detalhamento da Transação */}
+        {results.detalhamento_transacao && (
+          <div className="card">
+            <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center space-x-2">
+              <BarChart3 className="h-5 w-5 text-accent-primary" />
+              <span>Detalhamento da Transação</span>
+            </h3>
+            <div className="p-4 bg-surface-secondary rounded-lg border-l-4 border-accent-primary">
+              <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+                {results.detalhamento_transacao}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Detalhamento das Tabelas */}
+        {results.detalhamento_tabelas && (
+          <div className="card">
+            <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center space-x-2">
+              <Database className="h-5 w-5 text-accent-success" />
+              <span>Detalhamento das Tabelas</span>
+            </h3>
+            <div className="p-4 bg-surface-secondary rounded-lg border-l-4 border-accent-success">
+              <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+                {results.detalhamento_tabelas}
+              </p>
+            </div>
           </div>
         )}
       </div>
