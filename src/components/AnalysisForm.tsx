@@ -15,9 +15,11 @@ interface AnalysisFormProps {
     observations: string;
   } | null>;
   loading: boolean;
+  progress?: number;
+  statusMessage?: string;
 }
 
-export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, onWordAnalysis, loading }) => {
+export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, onWordAnalysis, loading, progress = 0, statusMessage = '' }) => {
   const [formData, setFormData] = useState({
     transactionName: '',
     fieldsToExtract: '',
@@ -207,6 +209,33 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, onWordAnal
           </>
         )}
       </button>
+
+      {/* Progress Bar and Status */}
+      {loading && (
+        <div className="space-y-3 mt-4 p-4 bg-surface-secondary rounded-lg border border-border-primary">
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs text-text-secondary">
+              <span>Progresso</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="w-full bg-background-primary rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-accent-primary to-accent-secondary h-3 rounded-full transition-all duration-700 ease-out shadow-sm"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          </div>
+          
+          {/* Status Message */}
+          {statusMessage && (
+            <div className="flex items-center space-x-2 text-sm text-text-primary">
+              <div className="w-2 h-2 bg-accent-primary rounded-full animate-pulse"></div>
+              <span className="font-medium">{statusMessage}</span>
+            </div>
+          )}
+        </div>
+      )}
     </form>
   );
 }; 

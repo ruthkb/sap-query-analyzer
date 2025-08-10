@@ -10,8 +10,9 @@ export interface WordAnalysisResult {
 
 export class WordAnalyzerService {
   private openai: OpenAI;
+  private onConfirmRequest?: (content: string, title: string) => Promise<{ confirmed: boolean; selectedModel: string }>;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, onConfirmRequest?: (content: string, title: string) => Promise<{ confirmed: boolean; selectedModel: string }>) {
     if (!apiKey || apiKey.trim() === '') {
       throw new Error('API Key não configurada');
     }
@@ -20,6 +21,8 @@ export class WordAnalyzerService {
       apiKey: apiKey.trim(),
       dangerouslyAllowBrowser: true
     });
+    
+    this.onConfirmRequest = onConfirmRequest;
   }
 
   async analyzeWordFile(file: File): Promise<WordAnalysisResult> {
@@ -30,8 +33,40 @@ export class WordAnalyzerService {
       const extractedText = await this.extractTextFromWord(file);
       console.log('📝 Texto extraído:', extractedText.substring(0, 200) + '...');
       
+      // Preparar conteúdo para confirmação
+      const wordAnalysisContent = `Modelo: gpt-4.1-mini
+Mensagem do Sistema: Você é especialista em SAP e análise de documentos. Analise o texto extraído de um arquivo Word extraindo dele o nome da transação, os campos a serem extraídos e os filtros utilizados. Com base no conteúdo do documento, que pode conter prints dos resultados dessa transação, elabore as observações importantes quanto à regras de negócio, agrupamentos, somatórios e dimensões de visão.
+
+SEMPRE responda no formato JSON válido:
+{
+  "transacao": "nome da transação",
+  "campos": ["lista", "dos", "campos", "a", "serem", "extraidos"],
+  "filtros": ["filtros"],
+  "observacao": "Breve observação importante qnto à somatórios, agrupamentos ou regras funcionais específicas da transação"
+}
+
+Mensagem do Usuário: Analise o seguinte texto extraído de um arquivo Word e extraia as informações solicitadas:
+
+${extractedText}
+
+Extraia o nome da transação SAP, os campos que devem ser extraídos, os filtros utilizados e as observações importantes sobre regras de negócio.`;
+      
+      // Solicitar confirmação do usuário
+      let selectedModel = "gpt-4o";
+      if (this.onConfirmRequest) {
+        const result = await this.onConfirmRequest(
+          wordAnalysisContent,
+          '📄 Análise de Arquivo Word - OpenAI'
+        );
+        
+        if (!result.confirmed) {
+          throw new Error('Operação cancelada pelo usuário');
+        }
+        selectedModel = result.selectedModel;
+      }
+      
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
+        model: selectedModel,
         messages: [
           {
             role: "system",
@@ -54,8 +89,7 @@ ${extractedText}
 Extraia o nome da transação SAP, os campos que devem ser extraídos, os filtros utilizados e as observações importantes sobre regras de negócio.`
           }
         ],
-        temperature: 0.2,
-        max_tokens: 2000
+        ...this.getModelParameters(selectedModel, 2000, 0.2)
       });
 
       const content = response.choices[0]?.message?.content;
@@ -93,6 +127,34 @@ Extraia o nome da transação SAP, os campos que devem ser extraídos, os filtro
     }
   }
 
+  private async requestConfirmation(content: string, title: string): Promise<{ confirmed: boolean; selectedModel: string }> {
+    if (this.onConfirmRequest) {
+      return await this.onConfirmRequest(content, title);
+    }
+    return { confirmed: true, selectedModel: 'gpt-4o' };
+  }
+
+  private getTokenParameter(model: string, maxTokens: number) {
+    // GPT-5 uses max_completion_tokens, other models use max_tokens
+    if (model.startsWith('gpt-5')) {
+      return { max_completion_tokens: maxTokens };
+    }
+    return { max_tokens: maxTokens };
+  }
+
+  private getModelParameters(model: string, maxTokens: number, temperature: number) {
+    // GPT-5 has restrictions: only supports default temperature (1) and uses max_completion_tokens
+    if (model.startsWith('gpt-5')) {
+      return { 
+        max_completion_tokens: maxTokens,
+        // GPT-5 only supports default temperature (1), so we omit it
+      };
+    }
+    return { 
+      max_tokens: maxTokens,
+      temperature: temperature
+    };
+  }
 
 
   private async extractTextFromWord(file: File): Promise<string> {
